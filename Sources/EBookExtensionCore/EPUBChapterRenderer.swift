@@ -30,6 +30,7 @@ struct EPUBChapterRenderer {
     html, body { margin: 0; padding: 0; background: Canvas; color: CanvasText; }
     #foofoil-reader {
       max-width: 44em; margin: 0 auto; padding: 1.4em 1.2em 3em;
+      background: Canvas; color: CanvasText;
       line-height: 1.9; word-wrap: break-word; -webkit-text-size-adjust: 100%;
       font-family: -apple-system, "PingFang SC", "Songti SC", "Noto Serif CJK SC", serif;
     }

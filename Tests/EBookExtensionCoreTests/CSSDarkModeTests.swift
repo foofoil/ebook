@@ -19,12 +19,21 @@ struct CSSDarkModeTests {
         .k { color: #000088; }
         .s { color: rgb(204, 51, 0); }
         .hll { background-color: #ffffcc; color: #000000; }
+        aside.box { background-color: #e6e7e8; }
         .ok { color: #eeeeee; }
         """
         let dark = CSSDarkModeTransformer.darkModeCSS(for: css)
         #expect(dark.contains(".k{"))
-        #expect(!dark.contains(".hll"))   // 浅色背景的代码卡片保持不变
         #expect(!dark.contains(".ok"))    // 本就够亮的颜色不动
+        // 浅色提示块/代码块背景需要压暗，文字保持提亮，避免浅底浅字。
+        #expect(dark.contains(".hll{"))
+        let background = backgroundHex(in: dark, selector: ".hll")
+        #expect(background != nil)
+        #expect(luminance(hex: background!) < 0.3, "background=\(background ?? "nil")")
+        // 无显式文字色的浅色提示块也必须压暗，否则继承的浅色文字不可读。
+        let boxBackground = backgroundHex(in: dark, selector: "aside.box")
+        #expect(boxBackground != nil)
+        #expect(luminance(hex: boxBackground!) < 0.3, "box=\(boxBackground ?? "nil")")
 
         let darkColor = colorHex(in: dark, selector: ".k")
         #expect(darkColor != nil)
@@ -101,7 +110,18 @@ struct CSSDarkModeTests {
     }
 
     private func colorHex(in css: String, selector: String) -> String? {
-        let pattern = NSRegularExpression.escapedPattern(for: selector) + #"\{color:\s*#([0-9a-fA-F]{6})"#
+        matchHex(in: css, pattern: NSRegularExpression.escapedPattern(for: selector) + #"\{color:\s*#([0-9a-fA-F]{6})"#)
+    }
+
+    private func backgroundHex(in css: String, selector: String) -> String? {
+        matchHex(
+            in: css,
+            pattern: NSRegularExpression.escapedPattern(for: selector)
+                + #"\{background(?:-color)?:\s*#([0-9a-fA-F]{6})"#
+        )
+    }
+
+    private func matchHex(in css: String, pattern: String) -> String? {
         guard let regex = try? NSRegularExpression(pattern: pattern),
               let match = regex.firstMatch(in: css, range: NSRange(css.startIndex..., in: css)),
               let range = Range(match.range(at: 1), in: css) else { return nil }

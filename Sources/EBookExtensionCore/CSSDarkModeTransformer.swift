@@ -73,12 +73,11 @@ enum CSSDarkModeTransformer {
         return cursor
     }
 
-    /// 返回调整后的声明；没有任何颜色需要提亮时返回 nil，避免放大深色样式。
+    /// 返回调整后的声明；没有任何颜色需要调整时返回 nil，避免放大深色样式。
     private static func adjustedDeclarations(_ declarations: String) -> String? {
         let pieces = declarations.split(separator: ";", omittingEmptySubsequences: false)
         var changed = false
         var output: [String] = []
-        let hasLightBackground = containsLightBackground(pieces)
 
         for piece in pieces {
             let declaration = piece.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -89,27 +88,33 @@ enum CSSDarkModeTransformer {
             }
             let property = declaration[..<colon].trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
             let value = String(declaration[declaration.index(after: colon)...])
-            if property == "color", !hasLightBackground, let adjusted = lightenedColorDeclaration(value) {
-                output.append("color: \(adjusted)")
-                changed = true
-            } else {
+            switch property {
+            case "color":
+                if let adjusted = lightenedColorDeclaration(value) {
+                    output.append("color: \(adjusted)")
+                    changed = true
+                } else {
+                    output.append(declaration)
+                }
+            case "background", "background-color":
+                // 浅色提示块/代码块背景在深色下压暗，避免"浅底浅字"。
+                if let adjusted = darkenedBackgroundDeclaration(value) {
+                    output.append("\(property): \(adjusted)")
+                    changed = true
+                } else {
+                    output.append(declaration)
+                }
+            default:
                 output.append(declaration)
             }
         }
         return changed ? output.joined(separator: "; ") : nil
     }
 
-    private static func containsLightBackground(_ pieces: [Substring]) -> Bool {
-        for piece in pieces {
-            let declaration = piece.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-            guard declaration.hasPrefix("background") else { continue }
-            guard let colon = declaration.firstIndex(of: ":") else { continue }
-            let value = String(declaration[declaration.index(after: colon)...])
-            if let color = firstColor(in: value), luminance(color) > 0.6 {
-                return true
-            }
-        }
-        return false
+    private static func darkenedBackgroundDeclaration(_ value: String) -> String? {
+        guard let match = firstColorMatch(in: value), let color = parseColor(match.token) else { return nil }
+        guard color.alpha > 0, luminance(color) > 0.6 else { return nil }
+        return "#" + hex(darken(color)) + match.suffix
     }
 
     private static func lightenedColorDeclaration(_ value: String) -> String? {
@@ -131,11 +136,6 @@ enum CSSDarkModeTransformer {
     private struct ColorMatch {
         let token: String
         let suffix: String
-    }
-
-    private static func firstColor(in value: String) -> Color? {
-        guard let match = firstColorMatch(in: value) else { return nil }
-        return parseColor(match.token)
     }
 
     private static func firstColorMatch(in value: String) -> ColorMatch? {
@@ -208,6 +208,12 @@ enum CSSDarkModeTransformer {
             toSRGB(toLinear(channel) + (1 - toLinear(channel)) * factor)
         }
         return Color(red: blend(color.red), green: blend(color.green), blue: blend(color.blue), alpha: color.alpha)
+    }
+
+    /// 在线性空间里整体压暗浅色背景，保留原有色相。
+    private static func darken(_ color: Color) -> Color {
+        func scale(_ channel: Double) -> Double { toSRGB(toLinear(channel) * 0.06) }
+        return Color(red: scale(color.red), green: scale(color.green), blue: scale(color.blue), alpha: color.alpha)
     }
 
     private static func hex(_ color: Color) -> String {
