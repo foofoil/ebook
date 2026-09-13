@@ -57,6 +57,10 @@ final class EBookRuntimeController: @unchecked Sendable {
     // MARK: - 生命周期
 
     func createSession(request: [String: Any]) throws -> [String: Any] {
+        guard let requestData = try? JSONSerialization.data(withJSONObject: request),
+              requestData.count <= limits.maxRequestBytes else {
+            throw RuntimeControllerError.unsupportedRequest
+        }
         guard let resource = try resourceObject(from: request),
               let urlString = resource["url"] as? String,
               let fallbackURL = URL(string: urlString),

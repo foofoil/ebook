@@ -32,6 +32,10 @@ let package = Package(
         .testTarget(
             name: "EBookExtensionCoreTests",
             dependencies: ["EBookExtensionCore", "EBookTestSupport"]
+        ),
+        .testTarget(
+            name: "EBookExtensionRuntimeTests",
+            dependencies: ["EBookExtensionRuntime", "EBookExtensionCore", "EBookTestSupport"]
         )
     ]
 )

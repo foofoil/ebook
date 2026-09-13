@@ -207,6 +207,51 @@ public struct EPUBFixtureBuilder {
     </html>
     """
 
+    /// 字体混淆夹具：encryption.xml + 可被 CSS 引用的字体。
+    public static func obfuscatedFontEPUB(
+        algorithm: String = "http://www.idpf.org/2008/embedding",
+        target: String = "OEBPS/font.ttf"
+    ) -> Data {
+        var builder = EPUBFixtureBuilder()
+        builder.add(name: "mimetype", text: "application/epub+zip")
+        builder.add(name: "META-INF/container.xml", text: containerXML)
+        builder.add(name: "META-INF/encryption.xml", text: """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <encryption xmlns="urn:oasis:names:tc:opendocument:xmlns:container"
+                    xmlns:enc="http://www.w3.org/2001/04/xmlenc#">
+          <enc:EncryptedData>
+            <enc:EncryptionMethod Algorithm="\(algorithm)"/>
+            <enc:CipherData><enc:CipherReference URI="\(target)"/></enc:CipherData>
+          </enc:EncryptedData>
+        </encryption>
+        """)
+        builder.add(name: "OEBPS/content.opf", text: """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <package xmlns="http://www.idpf.org/2007/opf" version="3.0">
+          <metadata xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:title>字体书</dc:title></metadata>
+          <manifest>
+            <item id="c1" href="c1.xhtml" media-type="application/xhtml+xml"/>
+            <item id="f1" href="font.ttf" media-type="font/ttf"/>
+            <item id="css" href="style.css" media-type="text/css"/>
+          </manifest>
+          <spine><itemref idref="c1"/></spine>
+        </package>
+        """)
+        builder.add(name: "OEBPS/c1.xhtml", text: """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <html xmlns="http://www.w3.org/1999/xhtml">
+          <head><title>第一章</title><link rel="stylesheet" type="text/css" href="style.css"/></head>
+          <body><h1>第一章</h1><p>字体混淆仍可阅读。</p></body>
+        </html>
+        """)
+        builder.add(name: "OEBPS/style.css", text: """
+        @font-face { font-family: BookFont; src: url(font.ttf); }
+        body { font-family: BookFont, serif; }
+        """)
+        builder.add(name: "OEBPS/font.ttf", data: Data(repeating: 0x5F, count: 128))
+        return (try? builder.build()) ?? Data()
+    }
+
     /// 1×1 透明 PNG。
     public static let pixelPNG: Data = Data(
         base64Encoded: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="

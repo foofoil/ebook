@@ -29,6 +29,8 @@ public struct EPUBLimits: Sendable {
     public var maxNavigatorTitleCharacters: Int
     /// 扩展完整会话 JSON 预算。
     public var maxSessionJSONBytes: Int
+    /// 原始 request 编码后的 UTF-8 预算；超限直接拒绝，不丢弃书签。
+    public var maxRequestBytes: Int
 
     public init(
         maxFileBytes: UInt64 = 1 << 30,
@@ -43,7 +45,8 @@ public struct EPUBLimits: Sendable {
         maxNavigatorItems: Int = 2_000,
         maxNavigatorDepth: Int = 32,
         maxNavigatorTitleCharacters: Int = 256,
-        maxSessionJSONBytes: Int = 512 << 10
+        maxSessionJSONBytes: Int = 512 << 10,
+        maxRequestBytes: Int = 128 << 10
     ) {
         self.maxFileBytes = maxFileBytes
         self.maxEntryCount = maxEntryCount
@@ -58,6 +61,7 @@ public struct EPUBLimits: Sendable {
         self.maxNavigatorDepth = maxNavigatorDepth
         self.maxNavigatorTitleCharacters = maxNavigatorTitleCharacters
         self.maxSessionJSONBytes = maxSessionJSONBytes
+        self.maxRequestBytes = maxRequestBytes
     }
 
     public static let `default` = EPUBLimits()

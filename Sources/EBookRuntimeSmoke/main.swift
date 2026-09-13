@@ -234,6 +234,51 @@ do {
     let (afterCloseStatus, _) = try harness.perform(afterClose)
     try expect(afterCloseStatus != 0, "activate after close accepted")
 
+    // 非法契约版本、未知会话与带 restoration 的 close 都必须被拒绝。
+    let badVersion = try harness.performRaw([
+        "commandID": "ui.navigator.action",
+        "contractVersion": 2,
+        "action": ["contributionID": "ebook.toc", "kind": "activate", "itemIDs": ["toc:0"]],
+        "session": [
+            "id": second.id.uuidString,
+            "extensionID": "app.foofoil.extension.ebook",
+            "providerID": "ebook.epub",
+            "request": [:],
+            "presentation": ["kind": "text", "titleKey": "x", "body": "y"]
+        ]
+    ])
+    try expect(badVersion == 1, "bad contract version status \(badVersion)")
+
+    let unknownSession = try harness.performRaw([
+        "commandID": "session.lifecycle",
+        "contractVersion": 1,
+        "operation": "restore",
+        "restoration": [:],
+        "session": [
+            "id": UUID().uuidString,
+            "extensionID": "app.foofoil.extension.ebook",
+            "providerID": "ebook.epub",
+            "request": [:],
+            "presentation": ["kind": "text", "titleKey": "x", "body": "y"]
+        ]
+    ])
+    try expect(unknownSession == 1, "unknown session status \(unknownSession)")
+
+    let closeWithRestoration = try harness.performRaw([
+        "commandID": "session.lifecycle",
+        "contractVersion": 1,
+        "operation": "close",
+        "restoration": [:],
+        "session": [
+            "id": second.id.uuidString,
+            "extensionID": "app.foofoil.extension.ebook",
+            "providerID": "ebook.epub",
+            "request": [:],
+            "presentation": ["kind": "text", "titleKey": "x", "body": "y"]
+        ]
+    ])
+    try expect(closeWithRestoration == 1, "close with restoration status \(closeWithRestoration)")
+
     // 损坏文件返回错误会话并可关闭。
     let brokenURL = FileManager.default.temporaryDirectory
         .appendingPathComponent("foofoil-ebook-broken-\(UUID().uuidString).epub")
