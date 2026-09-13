@@ -36,6 +36,8 @@ final class EBookRuntimeController: @unchecked Sendable {
         var revision: UInt64 = 0
         var renderedChapters: [Int: RenderedChapter] = [:]
         var cachedBytes = 0
+        /// 封面文件 URL（位于会话临时目录），供宿主生成历史缩略图。
+        var thumbnailURL: URL?
         /// 结构解析失败时保留稳定 key，restore 必须回同一错误会话。
         var failureKey: String?
 
@@ -98,6 +100,12 @@ final class EBookRuntimeController: @unchecked Sendable {
         register(record)
         do {
             record.directory = try directoryManager.sessionDirectory(for: record.id)
+            if let cover = document.coverImage(), let directory = record.directory {
+                let target = directory.appendingPathComponent("cover.\(cover.pathExtension)")
+                if (try? cover.data.write(to: target, options: .atomic)) != nil {
+                    record.thumbnailURL = target
+                }
+            }
             let url = try renderChapter(record: record, chapterIndex: record.currentChapterIndex, fragment: nil)
             return sessionObject(record: record, presentationURL: url)
         } catch {
@@ -264,6 +272,9 @@ final class EBookRuntimeController: @unchecked Sendable {
             "commands": [],
             "navigatorContributions": [navigatorObject(record: record)]
         ]
+        if let thumbnailURL = record.thumbnailURL {
+            object["thumbnailURL"] = thumbnailURL.absoluteString
+        }
         if Self.encodedSize(object) > limits.maxSessionJSONBytes {
             // 原始目录超预算时降级为 spine 目录；仍超限则返回无目录的限制错误会话。
             object["navigatorContributions"] = [spineOnlyNavigatorObject(record: record)]

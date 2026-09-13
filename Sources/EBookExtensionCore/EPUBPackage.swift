@@ -28,6 +28,10 @@ public struct EPUBPackage: Sendable {
     public let manifest: [String: EPUBManifestItem]
     public let spine: [EPUBSpineItem]
     public let ncxItemID: String?
+    /// EPUB2 `<meta name="cover" content="...">` 指向的 manifest 项 ID。
+    public let coverImageItemID: String?
+    /// `<guide><reference type="cover" href="...">` 解析后的包内路径。
+    public let guideCoverPath: String?
     public let obfuscatedFontPaths: Set<String>
 
     public static func parse(archive: ZIPArchive, opfPath: String, limits: EPUBLimits) throws -> EPUBPackage {
@@ -94,6 +98,18 @@ public struct EPUBPackage: Sendable {
             manifest: manifest
         )
 
+        let coverImageItemID = metadata?
+            .descendants(localName: "meta")
+            .first { $0.attributeValue(localName: "name")?.lowercased() == "cover" }?
+            .attributeValue(localName: "content")
+        let guideCoverPath = root
+            .descendants(localName: "guide")
+            .first?
+            .elements(forLocalName: "reference")
+            .first { $0.attributeValue(localName: "type")?.lowercased() == "cover" }
+            .flatMap { $0.attributeValue(localName: "href") }
+            .flatMap { EPUBPath.resolve(reference: $0, relativeTo: baseDirectory)?.path }
+
         return EPUBPackage(
             opfPath: opfPath,
             title: titles.first,
@@ -102,6 +118,8 @@ public struct EPUBPackage: Sendable {
             manifest: manifest,
             spine: spine,
             ncxItemID: spineElement.attributeValue(localName: "toc"),
+            coverImageItemID: coverImageItemID,
+            guideCoverPath: guideCoverPath,
             obfuscatedFontPaths: obfuscatedFonts
         )
     }

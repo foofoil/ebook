@@ -252,6 +252,39 @@ public struct EPUBFixtureBuilder {
         return (try? builder.build()) ?? Data()
     }
 
+    /// 带封面的最小 EPUB。style: "epub3"（cover-image 属性）、"epub2"（meta cover）、"guide"（guide→xhtml→img）。
+    public static func coverEPUB(style: String = "epub3") -> Data {
+        var builder = EPUBFixtureBuilder()
+        builder.add(name: "mimetype", text: "application/epub+zip")
+        builder.add(name: "META-INF/container.xml", text: containerXML)
+        let coverItem = style == "epub3"
+            ? "<item id=\"cover\" href=\"cover.png\" media-type=\"image/png\" properties=\"cover-image\"/>"
+            : "<item id=\"coverimg\" href=\"cover.png\" media-type=\"image/png\"/>"
+        let meta = style == "epub2" ? "<meta name=\"cover\" content=\"coverimg\"/>" : ""
+        let guide = style == "guide" ? "<guide><reference type=\"cover\" href=\"coverpage.xhtml\"/></guide>" : ""
+        builder.add(name: "OEBPS/content.opf", text: """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <package xmlns="http://www.idpf.org/2007/opf" version="3.0">
+          <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
+            <dc:title>封面书</dc:title>\(meta)
+          </metadata>
+          <manifest>
+            <item id="c1" href="chapter1.xhtml" media-type="application/xhtml+xml"/>
+            \(coverItem)
+          </manifest>
+          <spine><itemref idref="c1"/></spine>\(guide)
+        </package>
+        """)
+        builder.add(name: "OEBPS/chapter1.xhtml", text: "<html xmlns=\"http://www.w3.org/1999/xhtml\"><body><p>正文</p></body></html>")
+        if style == "guide" {
+            builder.add(name: "OEBPS/coverpage.xhtml", text: """
+            <html xmlns="http://www.w3.org/1999/xhtml"><body><img src="cover.png" alt="cover"/></body></html>
+            """)
+        }
+        builder.add(name: "OEBPS/cover.png", data: pixelPNG)
+        return (try? builder.build()) ?? Data()
+    }
+
     /// 1×1 透明 PNG。
     public static let pixelPNG: Data = Data(
         base64Encoded: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="

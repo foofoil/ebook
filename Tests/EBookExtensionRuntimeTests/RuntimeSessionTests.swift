@@ -22,6 +22,20 @@ struct RuntimeSessionTests {
         #expect(!RuntimeFixtures.navigatorItems(session).isEmpty)
     }
 
+    /// 有封面时会话带 thumbnailURL，指向会话临时目录内可读的封面文件。
+    @Test func sessionExposesCoverThumbnail() throws {
+        let url = try RuntimeFixtures.writeEPUB(EPUBFixtureBuilder.coverEPUB())
+        defer { try? FileManager.default.removeItem(at: url) }
+        let controller = EBookRuntimeController()
+        defer { controller.shutdown() }
+
+        let session = try controller.createSession(request: RuntimeFixtures.request(for: url))
+        let thumbnail = try #require((session["thumbnailURL"] as? String).flatMap(URL.init(string:)))
+        #expect(thumbnail.isFileURL)
+        #expect(FileManager.default.fileExists(atPath: thumbnail.path))
+        #expect(!(try Data(contentsOf: thumbnail)).isEmpty)
+    }
+
     @Test func errorSessionsMapStableKeys() throws {
         let controller = EBookRuntimeController()
         defer { controller.shutdown() }
