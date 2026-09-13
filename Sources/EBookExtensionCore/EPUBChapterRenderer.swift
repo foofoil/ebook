@@ -28,20 +28,32 @@ struct EPUBChapterRenderer {
     private static let readerCSS = """
     :root { color-scheme: light dark; }
     html, body { margin: 0; padding: 0; background: Canvas; color: CanvasText; }
-    body {
+    #foofoil-reader {
       max-width: 44em; margin: 0 auto; padding: 1.4em 1.2em 3em;
       line-height: 1.9; word-wrap: break-word; -webkit-text-size-adjust: 100%;
       font-family: -apple-system, "PingFang SC", "Songti SC", "Noto Serif CJK SC", serif;
     }
-    /* 阅读优化：加大行距、压缩段落间距；覆盖书籍自带排版。 */
-    body, p, li, dd, dt, blockquote { line-height: 1.9 !important; }
-    p, li, dd, blockquote, figure {
+    /* 阅读优化：加大行距、压缩段落间距；用 id 提升优先级压过书籍自带的 class !important。 */
+    #foofoil-reader, #foofoil-reader p, #foofoil-reader li, #foofoil-reader dd,
+    #foofoil-reader dt, #foofoil-reader blockquote { line-height: 1.9 !important; }
+    #foofoil-reader p, #foofoil-reader li, #foofoil-reader dd,
+    #foofoil-reader blockquote, #foofoil-reader figure {
       margin-top: 0.25em !important;
       margin-bottom: 0.25em !important;
     }
-    img, svg, table { max-width: 100%; height: auto; }
-    pre { white-space: pre-wrap; word-wrap: break-word; }
-    a { color: inherit; }
+    /* 书籍常设 pre-wrap，源码缩进换行会被显示成空行；正文恢复正常换行，代码块保持原样。 */
+    #foofoil-reader, #foofoil-reader p, #foofoil-reader li, #foofoil-reader dd,
+    #foofoil-reader dt, #foofoil-reader blockquote, #foofoil-reader div,
+    #foofoil-reader td, #foofoil-reader th, #foofoil-reader span {
+      white-space: normal !important;
+    }
+    #foofoil-reader pre, #foofoil-reader pre span,
+    #foofoil-reader code, #foofoil-reader code span {
+      white-space: pre-wrap !important;
+    }
+    #foofoil-reader img, #foofoil-reader svg, #foofoil-reader table { max-width: 100%; height: auto; }
+    #foofoil-reader pre { word-wrap: break-word; }
+    #foofoil-reader a { color: inherit; }
     """
 
     private static let contentSecurityPolicy = "default-src 'none'; script-src 'none'; "
@@ -111,10 +123,48 @@ struct EPUBChapterRenderer {
                 return true
             }
             return false
+        case "p", "div":
+            // 空段落/占位 div 常被书籍用来当空行，直接移除，避免显示成段间空白。
+            if Self.isEmptySpacer(element) {
+                element.detach()
+                return true
+            }
+            return false
         default:
             return false
         }
     }
+
+    /// 无有效文本、无媒体内容、且不是锚点目标的空块，视为占位空行。
+    private static func isEmptySpacer(_ element: XMLElement) -> Bool {
+        if element.attributeValue(localName: "id") != nil
+            || element.attributeValue(localName: "name") != nil {
+            return false
+        }
+        // 空段落里承载锚点的 <a id/name> 不能当占位删除。
+        if !element.descendants(localName: "a").filter({
+            $0.attributeValue(localName: "id") != nil || $0.attributeValue(localName: "name") != nil
+        }).isEmpty {
+            return false
+        }
+        if let text = element.stringValue {
+            let meaningful = text.unicodeScalars.contains { scalar in
+                !CharacterSet.whitespacesAndNewlines.contains(scalar)
+                    && scalar != "\u{00A0}" && scalar != "\u{3000}"
+                    && scalar != "\u{200B}" && scalar != "\u{FEFF}"
+            }
+            if meaningful { return false }
+        }
+        for name in spacerContentNames where !element.descendants(localName: name).isEmpty {
+            return false
+        }
+        return true
+    }
+
+    private static let spacerContentNames = [
+        "img", "image", "svg", "video", "audio", "object", "iframe", "embed",
+        "canvas", "table", "math", "hr"
+    ]
 
     private func rewriteAttributes(of element: XMLElement, context: inout RenderContext) throws {
         let tag = element.localName ?? ""
@@ -247,7 +297,7 @@ struct EPUBChapterRenderer {
         \(styles)
         </style>
         </head>
-        <body>\(content)</body>
+        <body id="foofoil-reader">\(content)</body>
         </html>
         """
     }

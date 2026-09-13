@@ -58,9 +58,26 @@ struct EPUBDocumentTests {
         #expect(html.contains("href=\"#s1\""))
         #expect(html.contains("color: #333333"))
         #expect(html.contains("background-image: url(\"data:image/png;base64,"))
-        // 阅读排版：行距更大、段落间距更小。
+        // 阅读排版：行距更大、段落间距更小，且用 id 提升优先级压过书籍样式。
+        #expect(html.contains("body id=\"foofoil-reader\""))
         #expect(html.contains("line-height: 1.9 !important"))
         #expect(html.contains("margin-bottom: 0.25em !important"))
+        #expect(html.contains("#foofoil-reader p"))
+        #expect(html.contains("white-space: normal !important"))
+    }
+
+    @Test func removesBlankSpacerParagraphs() throws {
+        let body = "<p></p><p>&nbsp;</p><p>正文一</p><p><br/></p><p>正文二</p>"
+        let url = try TestFile.write(EPUBFixtureBuilder.minimalEPUB3(extraChapterBody: body))
+        defer { try? FileManager.default.removeItem(at: url) }
+        let document = try EPUBDocument(url: url)
+        let html = try document.renderChapter(at: 0)
+        #expect(html.contains("正文一"))
+        #expect(html.contains("正文二"))
+        #expect(!html.contains("<p></p>"))
+        #expect(!html.contains("<p>&nbsp;</p>"))
+        #expect(!html.contains("<p><br></br></p>"))
+        #expect(!html.contains("<p><br/></p>"))
     }
 
     @Test func rejectsUnknownEntityAndBrokenArchive() throws {
