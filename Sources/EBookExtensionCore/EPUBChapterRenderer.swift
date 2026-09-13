@@ -75,7 +75,9 @@ struct EPUBChapterRenderer {
         // 处理整棵文档以收集 head 中的样式；只序列化 body 内容。
         try process(element: root, context: &context)
         let content = (body.children ?? []).map(\.xmlString).joined()
-        let html = assemble(content: content, bookStyles: context.styles)
+        let bookCSS = context.styles.joined(separator: "\n")
+        let darkBookCSS = CSSDarkModeTransformer.darkModeCSS(for: bookCSS)
+        let html = assemble(content: content, bookStyles: context.styles, darkBookCSS: darkBookCSS)
         guard html.utf8.count <= limits.maxChapterHTMLBytes else { throw EPUBError.limitExceeded }
         return html
     }
@@ -284,8 +286,13 @@ struct EPUBChapterRenderer {
 
     // MARK: - 组装
 
-    private func assemble(content: String, bookStyles: [String]) -> String {
-        let styles = ([Self.readerCSS] + bookStyles).joined(separator: "\n")
+    private func assemble(content: String, bookStyles: [String], darkBookCSS: String) -> String {
+        var styles = [Self.readerCSS] + bookStyles
+        if !darkBookCSS.isEmpty {
+            // 深色外观下覆盖书籍的暗色语法配色；放在书籍样式之后以同优先级胜出。
+            styles.append("@media (prefers-color-scheme: dark) {\n\(darkBookCSS)}\n")
+        }
+        let joined = styles.joined(separator: "\n")
         return """
         <!DOCTYPE html>
         <html>
@@ -294,7 +301,7 @@ struct EPUBChapterRenderer {
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta http-equiv="Content-Security-Policy" content="\(Self.contentSecurityPolicy)">
         <style>
-        \(styles)
+        \(joined)
         </style>
         </head>
         <body id="foofoil-reader">\(content)</body>

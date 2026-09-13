@@ -9,7 +9,7 @@ import Foundation
 
 private func usage() -> Never {
     FileHandle.standardError.write(Data(
-        "Usage: ebook-inspect <file.epub> [--chapter <zero-based-index>]\n".utf8
+        "Usage: ebook-inspect <file.epub> [--chapter <zero-based-index>] [--dump <output.html>]\n".utf8
     ))
     exit(64)
 }
@@ -18,8 +18,19 @@ let arguments = CommandLine.arguments
 guard arguments.count >= 2 else { usage() }
 let url = URL(fileURLWithPath: arguments[1]).standardizedFileURL
 var chapterIndex: Int?
-if arguments.count >= 4, arguments[2] == "--chapter" {
-    chapterIndex = Int(arguments[3])
+var dumpPath: String?
+var index = 2
+while index < arguments.count {
+    switch arguments[index] {
+    case "--chapter":
+        chapterIndex = Int(arguments[index + 1])
+        index += 2
+    case "--dump":
+        dumpPath = arguments[index + 1]
+        index += 2
+    default:
+        usage()
+    }
 }
 
 do {
@@ -37,6 +48,10 @@ do {
     if let chapterIndex {
         let html = try document.renderChapter(at: chapterIndex)
         print("chapter \(chapterIndex) html bytes: \(html.utf8.count)")
+        if let dumpPath {
+            try html.write(toFile: dumpPath, atomically: true, encoding: .utf8)
+            print("dumped to \(dumpPath)")
+        }
     }
 } catch {
     FileHandle.standardError.write(Data("ebook-inspect failed: \(error)\n".utf8))
