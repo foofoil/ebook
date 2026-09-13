@@ -353,9 +353,9 @@ swift run ebook-runtime-smoke --self-test
 - `NSViewRepresentable` 包装专用 `WKWebView`，不复用浏览网页模式中的登录、导航或打开外部浏览器行为。Coordinator 持有加载状态、当前完整目标 URL、session UUID 和导航 generation。
 - 按第 2.1 节验证 URL，去 fragment 后取得真实文件路径进行属性检查：必须是 `file:`、无远端 host，文件存在且为普通 HTML、非符号链接，且位于本体进程 `FileManager.default.temporaryDirectory` 之下（in-process 扩展写的就是这里；契约没有传“扩展私有根”，宿主只能按该前缀收紧）。宿主不得为了加载失败扩大 read access；自包含文件使用 `loadFileURL(targetURL, allowingReadAccessTo: fileURLWithoutFragment)`。
 - 创建配置时设 `defaultWebpagePreferences.allowsContentJavaScript = false`、`websiteDataStore = .nonPersistent()`，不添加 JS bridge 或 user script。
-- 首次加载前异步编译／缓存并安装 `WKContentRuleList`，采取默认拒绝：阻断网络 scheme，再仅放行 `file:` document 与 `data:` image/font。**待验证项**：WebKit 内容规则对 `file:`／`data:` 的匹配语义有限制，`url-filter: ".*"` + block 是否影响主文档、白名单是否按预期生效，必须在目标系统实测；“禁止网络”以本视图的 `allowsContentJavaScript = false` 与文档 CSP 为主，规则列表仅作纵深防御，不作为唯一保证。文件 document 的实际访问由下述 delegate 和单文件 read access 收紧；其它 file 子资源、网络 scheme 和其它 data 类型保持阻断。规则编译／安装失败显示 `Document Security Setup Failed`，不能先加载或降级成无规则 WebView。
+- 首次加载前异步编译／缓存并安装 `WKContentRuleList`，采取默认拒绝：阻断网络 scheme（实际规则为显式阻断 `^https?://` / `^wss?://` / `^ftp://`，避免 `url-filter: ".*"` 误伤主文档）。**验证结论（已实测）**：宿主 `ExtensionDocumentNetworkTests` 用本地 HTTP 计数验证——未装规则时同一页面会真实请求服务（阳性对照），装入生产规则后整个加载与交互期间请求数为零。测试需要沙箱宿主监听回环端口，因此 Debug 配置单独使用 `foofoil/foofoil.debug.entitlements`（仅多 `com.apple.security.network.server`）；Release 权限不变。`file:` document 与 `data:` image/font 不经网络，由单文件 read access 与 CSP 约束；“禁止网络”仍以 `allowsContentJavaScript = false` 与文档 CSP 为主，规则列表作纵深防御。文件 document 的实际访问由下述 delegate 和单文件 read access 收紧。规则编译／安装失败显示 `Document Security Setup Failed`，不能先加载或降级成无规则 WebView。
 - `WKNavigationDelegate` 只允许宿主当前请求的主文档文件与该文件的 fragment 导航；拒绝不同路径、远端 URL、子 frame、重定向到非目标及下载。`WKUIDelegate` 拒绝新窗口，任何被阻止链接不交给 `NSWorkspace.open`。响应阶段确认仍是目标 HTML，禁止触发下载回退。不能只用 navigation delegate 拦截图片／CSS 网络请求。
-- 以完整 URL（包含 fragment）判断更新；同文件 fragment 改变时也执行带 fragment 的 `loadFileURL`。**待验证项**：`loadFileURL` 是否按 fragment 原生滚动到锚点需用真实 WebView 实测（含足够滚动距离并断言位置）；不可用时 v1 回退到章首，不启用 JS。缺失锚点落在章首。
+- 以完整 URL（包含 fragment）判断更新；同文件 fragment 改变时也执行带 fragment 的 `loadFileURL`。**验证结论（已实测）**：`loadFileURL` 会按 fragment 原生滚动到锚点（真实 WKWebView 测试断言 `window.scrollY > 100` 且 URL fragment 正确），无需 JS；缺失锚点落在章首。
 - 用户正文内 fragment 点击由 WebKit 原生处理；SwiftUI 无关更新不重复加载。来自目录的目标变化取消上一导航并推进 generation，旧完成／失败回调不得覆盖新状态。session UUID 变化时更换视图身份，不沿用另一会话滚动位置。
 - 加载中显示本地化进度；无效 URL、缺失文件、加载失败及 WebContent 进程终止显示明确占位。视图 teardown 调用 `stopLoading`、清空 delegate 并失效 generation；临时文件仅由 runtime 清理。关闭窗口与会话替换仍走宿主既有生命周期，异步关闭时忽略旧视图回调。
 - 背景透明／跟随文档 CSS，保持现有边框与全屏外观；验证文字选择、滚动、焦点、键盘、目录面板展开以及窗口拖动不冲突。宿主不从 EPUB 私有 ID 分支判断呈现行为。
@@ -435,6 +435,8 @@ swift run ebook-runtime-smoke --self-test
 6. 运行下面的全套验证并执行 `./run`；完成所有手动项后交付。记录未通过项，不能以“只通过 Codable 测试”宣称功能完成。
 
 分期建议，避免一次性铺满生产级加固：**P0** 为第 1–5 步的核心阅读链路——`document` 契约、宿主最小 WKWebView（`allowsContentJavaScript = false` + CSP + 导航白名单 + 单文件 read access）、renderer 清理/内联、navigator（含禁用分组或第二个 contribution）、单文件约束、close/restore/清理；**P1** 为内容规则列表、XML SAX 预检、第 3.7 节极限矩阵的完整组合、全量网络计数测试。navigator 动作 FIFO 属于正确性要求，保留在 P0。第 4.1 节的“待验证项”必须在 P0 完成前给出实测结论。
+
+**实施状态（2026-09-13）**：P0 与 P1 均已落地。P1 完成内容：navigator 动作串行 FIFO（宿主 `NavigatorActionOrderingTests`）、`WKContentRuleList` 网络阻断与 Debug 专用 `network.server` 授权（`ExtensionDocumentNetworkTests` 含阳性对照）、极限矩阵边界测试（`EBookExtensionRuntimeTests`，含 request/会话 JSON 预算、entry/中央目录/XML/章节资源/缓存 HTML/navigator 限额）、真实 WebView 零网络计数、字体混淆降级与加密拒绝、未知会话/非法版本 smoke。§3.7 的 `maxRequestBytes` 已实现并测试；`loadFileURL` fragment 与内容规则语义均已实测。
 
 ## 6. 验证清单
 
