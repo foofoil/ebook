@@ -1,0 +1,27 @@
+{
+  "id": "app.foofoil.extension.ebook",
+  "name": "EBook",
+  "version": "0.1.0",
+  "extensionAPI": {
+    "min": 1,
+    "max": 1
+  },
+  "system": {
+    "minMacOS": "15.0",
+    "architectures": ["arm64"]
+  },
+  "providers": [
+    {
+      "id": "ebook.epub",
+      "role": "primary",
+      "contentTypes": [
+        {"extensions": ["epub"], "strategy": "extension"}
+      ]
+    }
+  ],
+  "capabilities": [
+    {"id": "ui.navigator", "contractVersion": 1, "scope": "presentation"},
+    {"id": "ui.navigator-actions", "contractVersion": 1, "scope": "presentation"},
+    {"id": "session.lifecycle", "contractVersion": 1, "scope": "session"}
+  ]
+}
