@@ -30,8 +30,14 @@ struct EPUBChapterRenderer {
     html, body { margin: 0; padding: 0; background: Canvas; color: CanvasText; }
     body {
       max-width: 44em; margin: 0 auto; padding: 1.4em 1.2em 3em;
-      line-height: 1.65; word-wrap: break-word; -webkit-text-size-adjust: 100%;
+      line-height: 1.9; word-wrap: break-word; -webkit-text-size-adjust: 100%;
       font-family: -apple-system, "PingFang SC", "Songti SC", "Noto Serif CJK SC", serif;
+    }
+    /* 阅读优化：加大行距、压缩段落间距；覆盖书籍自带排版。 */
+    body, p, li, dd, dt, blockquote { line-height: 1.9 !important; }
+    p, li, dd, blockquote, figure {
+      margin-top: 0.25em !important;
+      margin-bottom: 0.25em !important;
     }
     img, svg, table { max-width: 100%; height: auto; }
     pre { white-space: pre-wrap; word-wrap: break-word; }

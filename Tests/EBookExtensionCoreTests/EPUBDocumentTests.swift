@@ -58,6 +58,9 @@ struct EPUBDocumentTests {
         #expect(html.contains("href=\"#s1\""))
         #expect(html.contains("color: #333333"))
         #expect(html.contains("background-image: url(\"data:image/png;base64,"))
+        // 阅读排版：行距更大、段落间距更小。
+        #expect(html.contains("line-height: 1.9 !important"))
+        #expect(html.contains("margin-bottom: 0.25em !important"))
     }
 
     @Test func rejectsUnknownEntityAndBrokenArchive() throws {
