@@ -122,6 +122,46 @@ struct RuntimeSessionTests {
         }
     }
 
+    /// 恢复携带旧目录选中项时跳到对应章节；无效项保持当前位置，不建新会话。
+    @Test func restoreJumpsToSavedReadingPosition() throws {
+        let url = try RuntimeFixtures.writeEPUB(EPUBFixtureBuilder.minimalEPUB3())
+        defer { try? FileManager.default.removeItem(at: url) }
+        let controller = EBookRuntimeController()
+        defer { controller.shutdown() }
+
+        // 旧会话翻到第二章后关闭，模拟宿主保存的目录选中项。
+        let previous = try controller.createSession(request: RuntimeFixtures.request(for: url))
+        _ = try controller.perform(
+            navigation: navigateMessage(itemID: "spine:1", session: previous),
+            session: previous
+        )
+        let close = try lifecycleMessage(operation: "close", session: previous)
+        _ = try controller.perform(lifecycle: close, session: previous)
+
+        // 历史重开从首章开始；restore 带旧选中项应回到第二章。
+        let fresh = try controller.createSession(request: RuntimeFixtures.request(for: url))
+        #expect(documentURL(fresh)?.lastPathComponent == "chapter-0000.html")
+        let restore = try lifecycleMessage(
+            operation: "restore",
+            session: fresh,
+            restoration: ["currentItemID": "spine:1"]
+        )
+        let restored = try controller.perform(lifecycle: restore, session: fresh)
+        #expect(restored["id"] as? String == fresh["id"] as? String)
+        #expect(documentURL(restored)?.lastPathComponent == "chapter-0001.html")
+        #expect(RuntimeFixtures.navigatorSelectedItemIDs(restored) == ["spine:1"])
+
+        // 无效目录项：保持当前位置，会话不受影响。
+        let bogus = try lifecycleMessage(
+            operation: "restore",
+            session: restored,
+            restoration: ["currentItemID": "spine:99"]
+        )
+        let unchanged = try controller.perform(lifecycle: bogus, session: restored)
+        #expect(documentURL(unchanged)?.lastPathComponent == "chapter-0001.html")
+        #expect(RuntimeFixtures.navigatorSelectedItemIDs(unchanged) == ["spine:1"])
+    }
+
     // MARK: - Helpers
 
     private func imageSpineEPUB() throws -> Data {

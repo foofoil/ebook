@@ -9,9 +9,10 @@ This repository owns EPUB container/package/navigation parsing, chapter HTML ren
 - One EPUB per session: a window opens a single `.epub` and replaces the previous session.
 - Sidebar TOC uses `ui.navigator` outline; clicking an entry switches chapters through `ui.navigator.action`.
 - Chapters are rendered to self-contained local HTML (images/CSS inlined as data URIs) and presented by the host document view.
+- Reading position is remembered in host history: reopening a book restores the last-read chapter (via `session.lifecycle` restoration) and the in-chapter scroll offset is restored by the host document view. Font size follows the host per-window text zoom, which also persists per history entry.
 - Font obfuscation is degraded to system fonts; DRM/encrypted content is rejected with a clear message.
 
-Not supported: DRM, cross-chapter links, last-read position restore, fixed-layout optimization, full-text search, annotations, and bookmarks.
+Not supported: DRM, cross-chapter links, fixed-layout optimization, full-text search, annotations, and bookmarks.
 
 ## Build and Test
 

@@ -118,17 +118,11 @@ final class EBookRuntimeController: @unchecked Sendable {
         guard let itemID = navigation.action.itemIDs.first,
               let node = record.publication?.node(id: itemID),
               node.isEnabled,
-              let chapterIndex = node.chapterIndex else {
+              node.chapterIndex != nil else {
             throw RuntimeControllerError.invalidRequest
         }
-        lock.lock()
-        record.currentItemID = itemID
-        record.currentChapterIndex = chapterIndex
-        record.revision &+= 1
-        lock.unlock()
         do {
-            let url = try renderChapter(record: record, chapterIndex: chapterIndex, fragment: node.fragment)
-            return sessionObject(record: record, presentationURL: url)
+            return try jumpSnapshot(record: record, node: node)
         } catch {
             return chapterFailureSnapshot(record: record, key: Self.key(for: error))
         }
@@ -147,7 +141,7 @@ final class EBookRuntimeController: @unchecked Sendable {
             return closedSnapshot(id: id, request: session["request"] as? [String: Any] ?? [:])
         case .restore:
             guard let record = sessionRecord(id: id) else { throw RuntimeControllerError.invalidSession }
-            return currentSnapshot(record: record)
+            return restoreSnapshot(record: record, restoration: lifecycle.restoration)
         }
     }
 
@@ -216,6 +210,37 @@ final class EBookRuntimeController: @unchecked Sendable {
             return sessionObject(record: record, presentationURL: cached.url)
         }
         return chapterFailureSnapshot(record: record, key: "EBook Chapter Failed")
+    }
+
+    /// 切换当前目录项并渲染目标章节；导航动作与恢复共用。
+    private func jumpSnapshot(record: SessionRecord, node: Publication.Node) throws -> [String: Any] {
+        guard let chapterIndex = node.chapterIndex else {
+            throw RuntimeControllerError.invalidRequest
+        }
+        lock.lock()
+        record.currentItemID = node.id
+        record.currentChapterIndex = chapterIndex
+        record.revision &+= 1
+        lock.unlock()
+        let url = try renderChapter(record: record, chapterIndex: chapterIndex, fragment: node.fragment)
+        return sessionObject(record: record, presentationURL: url)
+    }
+
+    /// 恢复宿主保存的阅读位置：restoration 带目录选中项时跳到对应章节；无效项保持当前位置。
+    private func restoreSnapshot(
+        record: SessionRecord,
+        restoration: SessionLifecycleMessage.Restoration?
+    ) -> [String: Any] {
+        if let itemID = restoration?.currentItemID,
+           let node = record.publication?.node(id: itemID),
+           node.isEnabled, node.chapterIndex != nil {
+            do {
+                return try jumpSnapshot(record: record, node: node)
+            } catch {
+                return chapterFailureSnapshot(record: record, key: Self.key(for: error))
+            }
+        }
+        return currentSnapshot(record: record)
     }
 
     private func unavailableSnapshot(

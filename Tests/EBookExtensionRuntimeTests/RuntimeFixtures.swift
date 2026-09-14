@@ -87,4 +87,10 @@ enum RuntimeFixtures {
               let items = contributions.first?["items"] as? [[String: Any]] else { return [] }
         return items
     }
+
+    static func navigatorSelectedItemIDs(_ session: [String: Any]) -> [String] {
+        guard let contributions = session["navigatorContributions"] as? [[String: Any]],
+              let selected = contributions.first?["selectedItemIDs"] as? [String] else { return [] }
+        return selected
+    }
 }
