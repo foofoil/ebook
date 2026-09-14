@@ -58,10 +58,11 @@ struct EPUBDocumentTests {
         #expect(html.contains("href=\"#s1\""))
         #expect(html.contains("color: #333333"))
         #expect(html.contains("background-image: url(\"data:image/png;base64,"))
-        // 阅读排版：行距更大、段落间距更小，且用 id 提升优先级压过书籍样式。
+        // 阅读排版：行距更大、段落间距更小、正文两端对齐，且用 id 提升优先级压过书籍样式。
         #expect(html.contains("body id=\"foofoil-reader\""))
         #expect(html.contains("line-height: 1.9 !important"))
         #expect(html.contains("margin-bottom: 0.25em !important"))
+        #expect(html.contains("text-align: justify !important"))
         #expect(html.contains("#foofoil-reader p"))
         #expect(html.contains("white-space: normal !important"))
     }

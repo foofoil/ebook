@@ -42,6 +42,14 @@ struct EPUBChapterRenderer {
       margin-top: 0.25em !important;
       margin-bottom: 0.25em !important;
     }
+    /* 正文两端对齐；作者内联标注 text-align 的段落（诗行、图注等显式对齐）保持原样。 */
+    #foofoil-reader p:not([style*="text-align" i]),
+    #foofoil-reader li:not([style*="text-align" i]),
+    #foofoil-reader dd:not([style*="text-align" i]),
+    #foofoil-reader dt:not([style*="text-align" i]),
+    #foofoil-reader blockquote:not([style*="text-align" i]) {
+      text-align: justify !important;
+    }
     /* 书籍常设 pre-wrap，源码缩进换行会被显示成空行；正文恢复正常换行，代码块保持原样。 */
     #foofoil-reader, #foofoil-reader p, #foofoil-reader li, #foofoil-reader dd,
     #foofoil-reader dt, #foofoil-reader blockquote, #foofoil-reader div,

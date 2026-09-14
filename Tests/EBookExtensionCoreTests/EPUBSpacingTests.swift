@@ -37,6 +37,26 @@ struct EPUBSpacingTests {
         #expect(whiteSpace == "normal", "whiteSpace=\(whiteSpace ?? "nil")")
     }
 
+    /// 正文两端对齐：书籍 class + !important 的左对齐被压过；作者内联标注的居中段（诗行/图注）保留。
+    @Test func readerJustifiesParagraphsButKeepsAuthorAlignment() async throws {
+        let url = try TestFile.write(try bookWithAggressiveStyles())
+        defer { try? FileManager.default.removeItem(at: url) }
+
+        let document = try EPUBDocument(url: url)
+        let html = try document.renderChapter(at: 0)
+        let webView = try await loadInWebView(html: html)
+
+        let paragraphAlign = try await webView.evaluateJavaScript(
+            "getComputedStyle(document.querySelector('p.para')).textAlign"
+        ) as? String
+        let centeredAlign = try await webView.evaluateJavaScript(
+            "getComputedStyle(document.querySelector('p.centered')).textAlign"
+        ) as? String
+
+        #expect(paragraphAlign == "justify", "paragraphAlign=\(paragraphAlign ?? "nil")")
+        #expect(centeredAlign == "center", "centeredAlign=\(centeredAlign ?? "nil")")
+    }
+
     private func bookWithAggressiveStyles() throws -> Data {
         var builder = EPUBFixtureBuilder()
         builder.add(name: "mimetype", text: "application/epub+zip")
@@ -56,11 +76,11 @@ struct EPUBSpacingTests {
         <?xml version="1.0" encoding="UTF-8"?>
         <html xmlns="http://www.w3.org/1999/xhtml">
           <head><title>间距</title><link rel="stylesheet" type="text/css" href="style.css"/></head>
-          <body><p class="para">第一段</p><p class="para">第二段</p></body>
+          <body><p class="para">第一段</p><p class="para">第二段</p><p class="centered" style="text-align: center">居中段</p></body>
         </html>
         """)
         builder.add(name: "OEBPS/style.css", text: """
-        p.para { margin: 3em 0 !important; white-space: pre-wrap !important; line-height: 1.2 !important; }
+        p.para { margin: 3em 0 !important; white-space: pre-wrap !important; line-height: 1.2 !important; text-align: left !important; }
         """)
         return try builder.build()
     }
