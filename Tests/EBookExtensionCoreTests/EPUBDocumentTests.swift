@@ -59,9 +59,11 @@ struct EPUBDocumentTests {
         #expect(html.contains("color: #333333"))
         #expect(html.contains("background-image: url(\"data:image/png;base64,"))
         // 阅读排版：行距更大、段落间距更小、正文两端对齐，且用 id 提升优先级压过书籍样式。
+        // 行距与段距走宿主可覆盖的自定义属性，未设置时回落到这里的默认值。
         #expect(html.contains("body id=\"foofoil-reader\""))
-        #expect(html.contains("line-height: 1.9 !important"))
-        #expect(html.contains("margin-bottom: 0.25em !important"))
+        #expect(html.contains("line-height: var(--foofoil-document-line-height, 1.9) !important"))
+        #expect(html.contains("margin-bottom: var(--foofoil-document-paragraph-spacing, 0.25em) !important"))
+        #expect(html.contains("font-family: var(--foofoil-document-font-family,"))
         #expect(html.contains("text-align: justify !important"))
         #expect(html.contains("#foofoil-reader p"))
         #expect(html.contains("white-space: normal !important"))

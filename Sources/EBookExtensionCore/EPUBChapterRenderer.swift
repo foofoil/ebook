@@ -25,6 +25,8 @@ struct EPUBChapterRenderer {
         "param", "foreignObject"
     ]
 
+    /* 排版可由宿主覆盖：宿主把以下自定义属性内联写在 html/body 上（--foofoil-document-*），
+       未设置时回落到这里的默认值；书籍自带的 !important 由 id 选择器压过，自定义属性不影响优先级。 */
     private static let readerCSS = """
     :root { color-scheme: light dark; }
     html, body { margin: 0; padding: 0; background: Canvas; color: CanvasText; }
@@ -32,15 +34,18 @@ struct EPUBChapterRenderer {
       max-width: 44em; margin: 0 auto; padding: 1.4em 1.2em 3em;
       background: Canvas; color: CanvasText;
       line-height: 1.9; word-wrap: break-word; -webkit-text-size-adjust: 100%;
-      font-family: -apple-system, "PingFang SC", "Songti SC", "Noto Serif CJK SC", serif;
+      font-family: var(--foofoil-document-font-family,
+        -apple-system, "PingFang SC", "Songti SC", "Noto Serif CJK SC", serif);
     }
     /* 阅读优化：加大行距、压缩段落间距；用 id 提升优先级压过书籍自带的 class !important。 */
     #foofoil-reader, #foofoil-reader p, #foofoil-reader li, #foofoil-reader dd,
-    #foofoil-reader dt, #foofoil-reader blockquote { line-height: 1.9 !important; }
+    #foofoil-reader dt, #foofoil-reader blockquote {
+      line-height: var(--foofoil-document-line-height, 1.9) !important;
+    }
     #foofoil-reader p, #foofoil-reader li, #foofoil-reader dd,
     #foofoil-reader blockquote, #foofoil-reader figure {
-      margin-top: 0.25em !important;
-      margin-bottom: 0.25em !important;
+      margin-top: var(--foofoil-document-paragraph-spacing, 0.25em) !important;
+      margin-bottom: var(--foofoil-document-paragraph-spacing, 0.25em) !important;
     }
     /* 正文两端对齐；作者内联标注 text-align 的段落（诗行、图注等显式对齐）保持原样。 */
     #foofoil-reader p:not([style*="text-align" i]),
