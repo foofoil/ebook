@@ -339,7 +339,9 @@ final class EBookRuntimeController: @unchecked Sendable {
             "items": items,
             "selectedItemIDs": selected.map { [$0] } ?? [],
             "allowedActions": ["activate"],
-            "revision": record.revision
+            "revision": record.revision,
+            "readingOrderItemIDs": nodes.filter { $0.parentID == "spine:root" }.map(\.id),
+            "currentReadingOrderItemID": "spine:\(record.currentChapterIndex)"
         ]
     }
 

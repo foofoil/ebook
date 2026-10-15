@@ -11,6 +11,25 @@ import Testing
 @testable import EBookExtensionRuntime
 
 struct RuntimeSessionTests {
+    @Test func readingOrderStaysAtChapterWhenSelectingSubsection() throws {
+        let url = try RuntimeFixtures.writeEPUB(EPUBFixtureBuilder.minimalEPUB3())
+        defer { try? FileManager.default.removeItem(at: url) }
+        let controller = EBookRuntimeController()
+        defer { controller.shutdown() }
+        let session = try controller.createSession(request: RuntimeFixtures.request(for: url))
+        let contribution = try #require((session["navigatorContributions"] as? [[String: Any]])?.first)
+        #expect(contribution["readingOrderItemIDs"] as? [String] == ["spine:0", "spine:1"])
+        #expect(contribution["currentReadingOrderItemID"] as? String == "spine:0")
+        let subsection = try #require(RuntimeFixtures.navigatorItems(session).first {
+            ($0["id"] as? String)?.hasPrefix("spine:") == false && $0["parentID"] != nil && $0["isEnabled"] as? Bool == true
+        }?["id"] as? String)
+        let selected = try controller.perform(navigation: navigateMessage(itemID: subsection, session: session), session: session)
+        let updated = try #require((selected["navigatorContributions"] as? [[String: Any]])?.first)
+        #expect(updated["currentReadingOrderItemID"] as? String == "spine:0")
+        let next = try controller.perform(navigation: navigateMessage(itemID: "spine:1", session: selected), session: selected)
+        #expect((next["navigatorContributions"] as? [[String: Any]])?.first?["currentReadingOrderItemID"] as? String == "spine:1")
+    }
+
     @Test func obfuscatedFontBookCreatesDocumentSession() throws {
         let url = try RuntimeFixtures.writeEPUB(EPUBFixtureBuilder.obfuscatedFontEPUB())
         defer { try? FileManager.default.removeItem(at: url) }
