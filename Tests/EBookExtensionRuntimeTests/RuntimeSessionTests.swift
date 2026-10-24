@@ -11,6 +11,25 @@ import Testing
 @testable import EBookExtensionRuntime
 
 struct RuntimeSessionTests {
+    @Test func preparesWholeBookSearchWithoutNavigating() throws {
+        let url = try RuntimeFixtures.writeEPUB(RuntimeFixtures.epub(chapters: [
+            (id: "one", title: "First", body: "first needle"),
+            (id: "two", title: "Second", body: "second needle")
+        ]))
+        defer { try? FileManager.default.removeItem(at: url) }
+        let controller = EBookRuntimeController()
+        defer { controller.shutdown() }
+        let initial = try controller.createSession(request: RuntimeFixtures.request(for: url))
+        let prepared = try controller.prepareDocumentSearch(session: initial)
+        let sources = try #require(prepared["documentSearchSources"] as? [[String: String]])
+        #expect(sources.map { $0["itemID"] } == ["spine:0", "spine:1"])
+        #expect((prepared["presentation"] as? [String: String])?["url"] == (initial["presentation"] as? [String: String])?["url"])
+        for source in sources {
+            let file = try #require(source["url"].flatMap(URL.init(string:)))
+            #expect(try String(contentsOf: file, encoding: .utf8).contains("needle"))
+        }
+    }
+
     @Test func readingOrderStaysAtChapterWhenSelectingSubsection() throws {
         let url = try RuntimeFixtures.writeEPUB(EPUBFixtureBuilder.minimalEPUB3())
         defer { try? FileManager.default.removeItem(at: url) }

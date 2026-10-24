@@ -64,6 +64,8 @@ private let performCommandCallback: RuntimeCall = { _, input, inputLength, outpu
     let response: [String: Any]
     do {
         switch commandID {
+        case "document.search.prepare":
+            response = try runtimeController.prepareDocumentSearch(session: session)
         case "ui.navigator.action":
             let decoded = try JSONDecoder().decode(NavigatorActionMessage.self, from: data)
             try decoded.validate()

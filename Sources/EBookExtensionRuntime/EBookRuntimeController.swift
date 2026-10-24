@@ -113,6 +113,22 @@ final class EBookRuntimeController: @unchecked Sendable {
         }
     }
 
+    /// 按需准备整本书的搜索单元，不改变当前章节或目录选择。
+    func prepareDocumentSearch(session: [String: Any]) throws -> [String: Any] {
+        let record = try record(for: session)
+        guard let document = record.document else { throw RuntimeControllerError.invalidSession }
+        var sources: [[String: String]] = []
+        for chapter in document.chapters {
+            let url = try renderChapter(record: record, chapterIndex: chapter.index, fragment: nil)
+            sources.append(["url": url.absoluteString, "contributionID": Self.contributionID,
+                            "itemID": "spine:\(chapter.index)"])
+        }
+        var snapshot = currentSnapshot(record: record)
+        snapshot["documentSearchSources"] = sources
+        guard Self.encodedSize(snapshot) <= limits.maxSessionJSONBytes else { throw EPUBError.limitExceeded }
+        return snapshot
+    }
+
     func perform(navigation: NavigatorActionMessage, session: [String: Any]) throws -> [String: Any] {
         let record = try record(for: session)
         guard let itemID = navigation.action.itemIDs.first,
@@ -269,6 +285,7 @@ final class EBookRuntimeController: @unchecked Sendable {
             "presentation": ["kind": "unavailable", "titleKey": "EBook", "messageKey": key],
             "capabilities": activeCapabilities(),
             "commands": [],
+            "documentSearchSources": [[String: String]](),
             "navigatorContributions": [navigatorObject(record: record)]
         ]
     }
@@ -295,6 +312,7 @@ final class EBookRuntimeController: @unchecked Sendable {
             "presentation": ["kind": "document", "url": presentationURL.absoluteString],
             "capabilities": activeCapabilities(),
             "commands": [],
+            "documentSearchSources": [[String: String]](),
             "navigatorContributions": [navigatorObject(record: record)]
         ]
         if let thumbnailURL = record.thumbnailURL {
